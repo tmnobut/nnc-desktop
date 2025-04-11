@@ -39,7 +39,6 @@ if [ ! -e nnabla-build/dist/nnabla*arm64.whl -o ! -e nnabla-build/dist/nnabla_co
 then
     rm -rf nnabla
     rm -rf nnabla-build
-    pyenv local 3.10.14
     git clone https://github.com/sony/nnabla.git
     mkdir nnabla-build
     pushd nnabla-build
@@ -57,15 +56,12 @@ then
     popd
 fi
 
-NNABLA_WHL=$(readlink -f nnabla-build/dist/nnabla*arm64.whl)
-NNABLA_CONVERTER_WHL=$(readlink -f nnabla-build/dist/nnabla_converter*.whl)
+NNABLA_WHL=$(readlink -f nnabla-build/dist/nnabla-*.whl)
+NNABLA_CONVERTER_WHL=$(readlink -f nnabla-build/dist/nnabla_converter-*.whl)
 
 echo ${NNABLA_WHL}
 echo ${NNABLA_CONVERTER_WHL}
 popd
-
-pyenv local 3.10.14
-nodenv local 20.15.0
 
 . local_editor/scripts/build-web-page-macos.sh
 rm -rf electron_app/console
@@ -82,24 +78,7 @@ cp -rf local_editor/python_modules electron_app/py/server
 cp -rf local_editor/runner_component/core electron_app/py/connector
 cp -rf local_editor/runner_component/tools/nncd_console electron_app/py/server/
 cp -rf local_editor/runner_component/tools/nncd_console electron_app/py/connector/
-cp -rf ~/.anyenv/envs/pyenv/versions/3.10.14 electron_app/python_bundles
-
-# # copy lib
-libs=(
-  "/opt/homebrew/lib/libintl.8.dylib"
-  "/opt/homebrew/lib/libssl.3.dylib"
-  "/opt/homebrew/lib/libcrypto.3.dylib"
-  "/opt/homebrew/opt/readline/lib/libreadline.8.dylib"
-  "/opt/homebrew/opt/ncurses/lib/libncursesw.6.dylib"
-  "/opt/homebrew/opt/ncurses/lib/libpanelw.6.dylib"
-  "/opt/homebrew/opt/xz/lib/liblzma.5.dylib"
-  "/opt/homebrew/opt/sqlite/lib/libsqlite3.dylib"
-)
-
-for lib in "${libs[@]}"; do
-  cp -L "$lib" electron_app/python_bundles/lib/ || exit 1
-done
-
+cp -rf $pythonLocation electron_app/python_bundles
 
 # # pip install
 electron_app/python_bundles/bin/python3.10 -m pip install --upgrade pip || exit 1

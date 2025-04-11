@@ -25,12 +25,9 @@ ENV="prod"
 cd ${ROOT}/
 echo "cd ${ROOT}/"
 
-nodenv local 20.15.0
 ##############################
 ###  install package       ###
 ##############################
-
-
 echo "cd ${DIR_DASHBOARD}"
 pushd ${DIR_DASHBOARD}
 echo "npm install"

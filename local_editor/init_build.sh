@@ -21,18 +21,13 @@ DIR_DIST="dist"
 DIR_DIST_CONSOLE="dist/console"
 DIR_TOP="top"
 ENV="prod"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 
 cd ${ROOT}/
 echo "cd ${ROOT}/"
 
-nvm use 20.15.0
 ##############################
 ###  install package       ###
 ##############################
-
-
 echo "cd ${DIR_DASHBOARD}"
 pushd ${DIR_DASHBOARD}
 echo "npm install"

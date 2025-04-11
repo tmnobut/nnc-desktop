@@ -18,7 +18,7 @@ set NNABLA_VER=1.39.0
 set PYTHON_VERSION_MAJOR_MINOR=310
 
 MKDIR electron_app\python_bundles
-ROBOCOPY C:\Python%PYTHON_VERSION_MAJOR_MINOR% electron_app\python_bundles /E /XD /NFL /NDL .git
+ROBOCOPY %pythonLocation% electron_app\python_bundles /E /XD /NFL /NDL .git
 
 electron_app\python_bundles\python.exe -m pip install -U pip || GOTO :error_pip
 

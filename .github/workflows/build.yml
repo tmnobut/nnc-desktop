@@ -1,0 +1,218 @@
+name: Build nncd
+
+on:
+  push:
+    branches:
+    - $default-branch
+    - 'release/**'
+    - 'feature/**'
+  pull_request:
+    branches:
+    - $default-branch
+    - 'release/**'
+    - 'feature/**'
+
+jobs:
+  web-page-linux:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.15.0]
+
+    steps:
+    - name: clone nnc-desktop
+      uses: actions/checkout@v4
+
+    - name: setup for Node v${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: build pages (make build-web-page)
+      run: |
+        ls
+        mkdir ./build
+        cp -r nnc-web/common ./build/
+        cp -r nnc-web/web ./build/
+        cp -r local_editor ./build/
+        cp -rf ./build/local_editor/web_component/local_editor_web/* ./build/web/
+        cp -rf ./build/local_editor/web_component/local_editor_editor ./build/new_editor
+        cp -rf ./build/local_editor/web_component/local_editor_top ./build/top
+        pushd ./build/local_editor
+        bash init_build.sh
+        popd
+        cp -r ./build/top/dist/assets ./build/dist/console/
+        cp -r ./build/top/dist/project ./build/dist/console/
+        cp -r ./build/local_editor/resource/docs ./build/dist/console/
+        cp ./build/common/favicon.ico ./build/dist/console/
+        rm -rf ./build/dist/console/lib/dummy
+        mv ./build/dist/console ./
+        rm -rf ./build
+        ls
+
+    - name: upload built pages
+      uses: actions/upload-artifact@v4
+      with:
+        name: console-pages
+        path: ./console/
+        retention-days: 1
+
+
+  app-linux-cpu:
+    runs-on: ubuntu-latest
+    needs: web-page-linux
+
+    steps:
+    - name: checkout nnc-desktop
+      uses: actions/checkout@v4
+
+    - name: download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: console-pages
+        path: ./console/
+
+    - name: make cpu deb
+      run: |
+        make build-cpu-deb
+
+    - name: upload built cpu deb
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-cpu-deb
+        path: ./dist/*.deb
+        retention-days: 1
+
+  app-linux-gpu:
+    runs-on: ubuntu-latest
+    needs: web-page-linux
+
+    steps:
+    - name: checkout nnc-desktop
+      uses: actions/checkout@v4
+
+    - name: download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: console-pages
+        path: ./console/
+
+    - name: make gpu deb
+      run: |
+        make build-deb
+
+    - name: upload built gpu deb
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-gpu-deb
+        path: ./dist/*.deb
+        retention-days: 1
+
+
+  app-windows-cpu:
+    runs-on: windows-latest
+    needs: web-page-linux
+
+    steps:
+      - name: Support longpaths
+        run: git config --system core.longpaths true
+
+      - name: checkout nnc-desktop
+        uses: actions/checkout@v4
+
+      - name: setup for python v3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: setup for Node v20.15.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.15.0
+
+      - name: download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: console-pages
+          path: ./console/
+
+      - name: make cpu installer
+        shell: cmd
+        run: |
+          call local_editor\scripts\build_exe.bat "cpu"
+
+      - name: upload built cpu installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-cpu-installer
+          path: ./electron_app/dist/NeuralNetworkConsoleDesktop*.exe
+          retention-days: 1
+
+  app-windows-gpu:
+    runs-on: windows-latest
+    needs: web-page-linux
+
+    steps:
+      - name: Support longpaths
+        run: git config --system core.longpaths true
+
+      - name: checkout nnc-desktop
+        uses: actions/checkout@v4
+
+      - name: setup for python v3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: setup for Node v20.15.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.15.0
+
+      - name: download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: console-pages
+          path: ./console/
+
+      - name: make gpu installer
+        shell: cmd
+        run: |
+          call local_editor\scripts\build_exe.bat "gpu"
+
+      - name: upload built gpu installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-gpu-installer
+          path: ./electron_app/dist/NeuralNetworkConsoleDesktop*.exe
+          retention-days: 1
+
+
+  app-macos-cpu:
+    runs-on: macos-latest
+
+    steps:
+      - name: checkout nnc-desktop
+        uses: actions/checkout@v4
+
+      - name: setup for python v3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: setup for Node v20.15.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.15.0
+
+      - name: make cpu dmg
+        run: |
+          bash local_editor/scripts/build_mac_applesilicon.sh
+
+      - name: upload built cpu dmg
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-cpu-dmg
+          path: ./electron_app/dist/*.dmg
+          retention-days: 1
