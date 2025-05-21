@@ -32,7 +32,7 @@ echo "cd ${DIR_DASHBOARD}"
 pushd ${DIR_DASHBOARD}
 echo "npm install"
 rm -rf node_modules/
-npm install
+npm ci
 popd
 
 ##############################
@@ -73,7 +73,7 @@ popd
 pushd ${DIR_NEW_EDITOR}
 echo "npm install"
 rm -rf node_modules/
-npm install
+npm ci
 if [ ${ENV} == "local" ]; then
     echo "Build new editor with local env do nothing."
 else

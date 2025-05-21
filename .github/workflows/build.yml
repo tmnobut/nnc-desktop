@@ -29,9 +29,15 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
 
+    - name: restore npm ci cache
+      id: npm-cache-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-web-page-linux-${{ hashFiles('local_editor/web_component/*/package-lock.json') }}
+
     - name: build pages (make build-web-page)
       run: |
-        ls
         mkdir ./build
         cp -r nnc-web/common ./build/
         cp -r nnc-web/web ./build/
@@ -49,7 +55,13 @@ jobs:
         rm -rf ./build/dist/console/lib/dummy
         mv ./build/dist/console ./
         rm -rf ./build
-        ls
+
+    - name: save npm ci cache
+      id: npm-cache-save
+      uses: actions/cache/save@v4
+      with:
+        path: ~/.npm
+        key: ${{ steps.npm-cache-restore.outputs.cache-primary-key }}
 
     - name: upload built pages
       uses: actions/upload-artifact@v4
@@ -73,9 +85,43 @@ jobs:
         name: console-pages
         path: ./console/
 
+    - name: setup for Node v20.15.0
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.15.0
+
+    - name: setup for python v3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: install python packages
+      run: |
+        echo pythonLocationx
+        echo ${{ env.pythonLocation }}
+        pip install -U pip
+        pip install nnabla==1.39.0 nnabla_converter==1.39.0
+        pip install -r local_editor/requirements.txt
+        pip install local_editor/runner_component/tools/console_cli/*.whl
+
     - name: make cpu deb
       run: |
-        make build-cpu-deb
+        mkdir ./build
+        cp -r ./electron_app ./build/
+        wget https://nnabla.org/pkg/nncd-opt-ex.zip -O ./build/electron_app/opt-ex.zip || true
+        cp -r ./console ./build/electron_app/
+        cp -r ./local_editor/python_modules ./build/electron_app/py/server
+        cp -r ./local_editor/runner_component/core ./build/electron_app/py/connector
+        cp -r ./local_editor/runner_component/tools/nncd_console ./build/electron_app/py/server/
+        cp -r ./local_editor/runner_component/tools/nncd_console ./build/electron_app/py/connector/
+        cp -r ${{ env.pythonLocation }} ./build/electron_app/python_bundles
+        rm -f ./build/electron_app/python_bundles/Python-3.*.tgz
+        pushd ./build/electron_app
+        npm ci
+        npm run linux-cpu-deb
+        popd
+        mv ./build/electron_app/dist ./
+        rm -rf ./build
 
     - name: upload built cpu deb
       uses: actions/upload-artifact@v4
@@ -98,9 +144,46 @@ jobs:
         name: console-pages
         path: ./console/
 
+    - name: setup for Node v20.15.0
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.15.0
+
+    - name: setup for python v3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: install python packages
+      run: |
+        echo pythonLocationx
+        echo ${{ env.pythonLocation }}
+        pip install -U pip
+        pip install https://nnabla.org/whl/nnabla_ext_cuda_alllib/nnabla_ext_cuda_alllib-1.39.0-cp310-cp310-manylinux_2_28_x86_64.whl
+        pip install nnabla_converter==1.39.0
+        pip install -r local_editor/requirements.txt
+        pip install local_editor/runner_component/tools/console_cli/*.whl
+
     - name: make gpu deb
       run: |
-        make build-deb
+        mkdir ./build
+        cp -r ./electron_app ./build/
+        wget https://nnabla.org/pkg/nncd-opt-ex.zip -O ./build/electron_app/opt-ex.zip || true
+        cp -r ./console ./build/electron_app/
+        cp -r ./local_editor/python_modules ./build/electron_app/py/server
+        cp -r ./local_editor/runner_component/core ./build/electron_app/py/connector
+        cp -r ./local_editor/runner_component/tools/nncd_console ./build/electron_app/py/server/
+        cp -r ./local_editor/runner_component/tools/nncd_console ./build/electron_app/py/connector/
+        cp -r ${{ env.pythonLocation }} ./build/electron_app/python_bundles
+        rm -f ./build/electron_app/python_bundles/Python-3.*.tgz
+        chmod 666 ./build/electron_app/py/server/nncd_console/settings/settings.ini
+        chmod 666 ./build/electron_app/py/connector/nncd_console/settings/settings.ini
+        pushd ./build/electron_app
+        npm ci
+        npm run linux-gpu-deb
+        popd
+        mv ./build/electron_app/dist ./
+        rm -rf ./build
 
     - name: upload built gpu deb
       uses: actions/upload-artifact@v4
