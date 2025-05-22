@@ -97,8 +97,6 @@ jobs:
 
     - name: install python packages
       run: |
-        echo pythonLocationx
-        echo ${{ env.pythonLocation }}
         pip install -U pip
         pip install nnabla==1.39.0 nnabla_converter==1.39.0
         pip install -r local_editor/requirements.txt
@@ -129,6 +127,7 @@ jobs:
         name: linux-cpu-deb
         path: ./dist/*.deb
         retention-days: 1
+
 
   app-linux-gpu:
     runs-on: ubuntu-latest
@@ -198,78 +197,137 @@ jobs:
     needs: web-page-linux
 
     steps:
-      - name: Support longpaths
-        run: git config --system core.longpaths true
+    - name: Support longpaths
+      run: git config --system core.longpaths true
 
-      - name: checkout nnc-desktop
-        uses: actions/checkout@v4
+    - name: checkout nnc-desktop
+      uses: actions/checkout@v4
 
-      - name: setup for python v3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+    - name: download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: console-pages
+        path: ./console/
 
-      - name: setup for Node v20.15.0
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.15.0
+    - name: setup for Node v20.15.0
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.15.0
 
-      - name: download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: console-pages
-          path: ./console/
+    - name: setup for python v3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
 
-      - name: make cpu installer
-        shell: cmd
-        run: |
-          call local_editor\scripts\build_exe.bat "cpu"
+    - name: install python packages
+      run: |
+        pip install -U pip
+        pip install nnabla==1.39.0 nnabla_converter==1.39.0
+        pip install -r local_editor\requirements.txt
+        dir local_editor
+        dir local_editor\runner_component
+        dir local_editor\runner_component\tools
+        dir local_editor\runner_component\tools\console_cli
+        pip install local_editor\runner_component\tools\console_cli\nnabla_console-10.2.0-py3-none-any.whl
 
-      - name: upload built cpu installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-cpu-installer
-          path: ./electron_app/dist/NeuralNetworkConsoleDesktop*.exe
-          retention-days: 1
+    - name: make cpu installer
+      shell: powershell
+      run: |
+        Net-Item -Path ".\build" -ItemType "Directory"
+        Copy-Item -Recurse ".\electron_app" ".\build\"
+        $ErrorActionPreference = "Continue"
+        Invoke-WebRequest -Uri "https://nnabla.org/pkg/nncd-opt-ex.zip" -OutFile ".\build\electron_app\opt-ex.zip"
+        $ErrorActionPreference = "Stop"
+        Copy-Item -Recurse ".\console" ".\build\electron_app\"
+        Copy-Item -Recurse ".\local_editor\python_modules" ".\build\electron_app\py\server"
+        Copy-Item -Recurse ".\local_editor\runner_component\core" ".\build\electron_app\py\connector"
+        Copy-Item -Recurse ".\local_editor\runner_component\tools\nncd_console" ".\build\electron_app\py\server\"
+        Copy-Item -Recurse ".\local_editor\runner_component\tools\nncd_console" ".\build\electron_app\py\connector\"
+        Copy-Item -Recurse "${{ env.pythonLocation }}" ".\build\electron_app\python_bundles"
+        cd .\build\electron_app
+        tar.exe -cf - python_bundles | brotli.exe -9 > python_bundles.tar.br
+        Delete-Item -Recurse ".\python_bundles"
+        npm list -g cross-env || npm install cross-env
+        npx cross-env npm install
+        npm run win-cpu-dist
+        Delete-Item "python_bundles.tar.br"
+        cd ..\..
+        Move-Item -Path ".\build\electron_app\dist" ".\"
+        Delete-Item -Recurse ".\build"
+
+    - name: upload built cpu installer
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-cpu-installer
+        path: .\dist\NeuralNetworkConsoleDesktop*.exe
+        retention-days: 1
 
   app-windows-gpu:
     runs-on: windows-latest
     needs: web-page-linux
 
     steps:
-      - name: Support longpaths
-        run: git config --system core.longpaths true
+    - name: Support longpaths
+      run: git config --system core.longpaths true
 
-      - name: checkout nnc-desktop
-        uses: actions/checkout@v4
+    - name: checkout nnc-desktop
+      uses: actions/checkout@v4
 
-      - name: setup for python v3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+    - name: download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: console-pages
+        path: ./console/
 
-      - name: setup for Node v20.15.0
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.15.0
+    - name: setup for Node v20.15.0
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.15.0
 
-      - name: download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: console-pages
-          path: ./console/
+    - name: setup for python v3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
 
-      - name: make gpu installer
-        shell: cmd
-        run: |
-          call local_editor\scripts\build_exe.bat "gpu"
+    - name: install python packages
+      run: |
+        pip install -U pip
+        pip install -U https://nnabla.org/whl/nnabla_ext_cuda_alllib/nnabla_ext_cuda_alllib-1.39.0-cp310-cp310-win_amd64.whl
+        pip install nnabla_converter==1.39.0
+        pip install -r local_editor\requirements.txt
+        pip install local_editor\runner_component\tools\console_cli\nnabla_console-10.2.0-py3-none-any.whl
 
-      - name: upload built gpu installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-gpu-installer
-          path: ./electron_app/dist/NeuralNetworkConsoleDesktop*.exe
-          retention-days: 1
+    - name: make gpu installer
+      shell: cmd
+      run: |
+        Net-Item -Path ".\build" -ItemType "Directory"
+        Copy-Item -Recurse ".\electron_app" ".\build\"
+        $ErrorActionPreference = "Continue"
+        Invoke-WebRequest -Uri "https://nnabla.org/pkg/nncd-opt-ex.zip" -OutFile ".\build\electron_app\opt-ex.zip"
+        $ErrorActionPreference = "Stop"
+        Copy-Item -Recurse ".\console" ".\build\electron_app\"
+        Copy-Item -Recurse ".\local_editor\python_modules" ".\build\electron_app\py\server"
+        Copy-Item -Recurse ".\local_editor\runner_component\core" ".\build\electron_app\py\connector"
+        Copy-Item -Recurse ".\local_editor\runner_component\tools\nncd_console" ".\build\electron_app\py\server\"
+        Copy-Item -Recurse ".\local_editor\runner_component\tools\nncd_console" ".\build\electron_app\py\connector\"
+        Copy-Item -Recurse "${{ env.pythonLocation }}" ".\build\electron_app\python_bundles"
+        cd .\build\electron_app
+        tar.exe -cf - python_bundles | brotli.exe -9 > python_bundles.tar.br
+        Delete-Item -Recurse ".\python_bundles"
+        npm list -g cross-env || npm install cross-env
+        npx cross-env npm install
+        npm run win-gpu-dist
+        Delete-Item "python_bundles.tar.br"
+        cd ..\..
+        Move-Item -Path ".\build\electron_app\dist" ".\"
+        Delete-Item -Recurse ".\build"
+
+    - name: upload built gpu installer
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-gpu-installer
+        path: .\dist\NeuralNetworkConsoleDesktop*.exe
+        retention-days: 1
 
 
   app-macos-cpu:
