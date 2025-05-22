@@ -16,18 +16,14 @@ jobs:
   web-page-linux:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [20.15.0]
-
     steps:
     - name: clone nnc-desktop
       uses: actions/checkout@v4
 
-    - name: setup for Node v${{ matrix.node-version }}
+    - name: setup for Node v20.15.0
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: 20.15.0
 
     - name: restore npm ci cache
       id: npm-cache-restore
@@ -36,7 +32,7 @@ jobs:
         path: ~/.npm
         key: ${{ runner.os }}-web-page-linux-${{ hashFiles('local_editor/web_component/*/package-lock.json') }}
 
-    - name: build pages (make build-web-page)
+    - name: build pages for Linux
       run: |
         mkdir ./build
         cp -r nnc-web/common ./build/
@@ -233,7 +229,7 @@ jobs:
     - name: make cpu installer
       shell: powershell
       run: |
-        Net-Item -Path ".\build" -ItemType "Directory"
+        New-Item -Path ".\build" -ItemType "Directory"
         Copy-Item -Recurse ".\electron_app" ".\build\"
         $ErrorActionPreference = "Continue"
         Invoke-WebRequest -Uri "https://nnabla.org/pkg/nncd-opt-ex.zip" -OutFile ".\build\electron_app\opt-ex.zip"
@@ -247,8 +243,7 @@ jobs:
         cd .\build\electron_app
         tar.exe -cf - python_bundles | brotli.exe -9 > python_bundles.tar.br
         Delete-Item -Recurse ".\python_bundles"
-        npm list -g cross-env || npm install cross-env
-        npx cross-env npm install
+        npm ci
         npm run win-cpu-dist
         Delete-Item "python_bundles.tar.br"
         cd ..\..
@@ -298,9 +293,9 @@ jobs:
         pip install local_editor\runner_component\tools\console_cli\nnabla_console-10.2.0-py3-none-any.whl
 
     - name: make gpu installer
-      shell: cmd
+      shell: powershell
       run: |
-        Net-Item -Path ".\build" -ItemType "Directory"
+        New-Item -Path ".\build" -ItemType "Directory"
         Copy-Item -Recurse ".\electron_app" ".\build\"
         $ErrorActionPreference = "Continue"
         Invoke-WebRequest -Uri "https://nnabla.org/pkg/nncd-opt-ex.zip" -OutFile ".\build\electron_app\opt-ex.zip"
@@ -314,8 +309,7 @@ jobs:
         cd .\build\electron_app
         tar.exe -cf - python_bundles | brotli.exe -9 > python_bundles.tar.br
         Delete-Item -Recurse ".\python_bundles"
-        npm list -g cross-env || npm install cross-env
-        npx cross-env npm install
+        npm ci
         npm run win-gpu-dist
         Delete-Item "python_bundles.tar.br"
         cd ..\..
@@ -332,28 +326,87 @@ jobs:
 
   app-macos-cpu:
     runs-on: macos-latest
+    needs: web-page-linux
 
     steps:
-      - name: checkout nnc-desktop
-        uses: actions/checkout@v4
+    - name: checkout nnc-desktop
+      uses: actions/checkout@v4
 
-      - name: setup for python v3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+    - name: download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: console-pages
+        path: ./console/
 
-      - name: setup for Node v20.15.0
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.15.0
+    - name: setup for Node v20.15.0
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.15.0
 
-      - name: make cpu dmg
-        run: |
-          bash local_editor/scripts/build_mac_applesilicon.sh
+    - name: setup for python v3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
 
-      - name: upload built cpu dmg
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-cpu-dmg
-          path: ./electron_app/dist/*.dmg
-          retention-days: 1
+    - name: build nnabla
+      run: |
+        mkdir -p ./build
+        pushd ./build
+        wget https://github.com/protocolbuffers/protobuf/archive/refs/tags/v21.12.tar.gz -O - |tar xzf -
+        mkdir protobuf-build
+        pushd protobuf-build
+        cmake -Dprotobuf_BUILD_TESTS=OFF ../protobuf-21.12/cmake
+        make -j8
+        popd
+        git clone https://github.com/sony/nnabla.git
+        mkdir nnabla-build
+        pushd nnabla-build
+        python -m venv nnabla-venv
+        . nnabla-venv/bin/activate
+        python -m pip install -U pip
+        perl -i -pe 's/^Cython$/Cython==3.0.10/g' ../nnabla/python/requirements.txt
+        perl -i -pe 's/^numpy$/numpy==1.26.4/g' ../nnabla/python/requirements.txt
+        python -m pip install -U -r ../nnabla/python/requirements.txt
+        python -m pip install -U -r ../nnabla/python/setup_requirements.txt
+        cmake -DPROTOC_COMMAND=$(readlink -f ../protobuf-build/protoc) ../nnabla
+        make -j8
+        deactivate
+        popd
+        popd
+        mv ./build/nnabla-build/dist/nnabla-*.whl ./
+        mv ./build/nnabla-build/dist/nnabla_converter-*.whl ./
+        rm -rf ./build
+
+    - name: install python packages
+      run: |
+        pip install -U pip
+        pip install ./nnabla-*.whl ./nnabla_converter-*.whl
+        pip install -r local_editor/requirements.txt
+        pip install local_editor/runner_component/tools/console_cli/*.whl
+
+    - name: make cpu dmg
+      run: |
+        mkdir -p ./build
+
+        cp -r ./electron_app ./build/
+        wget https://nnabla.org/pkg/nncd-opt-ex.zip -O ./build/electron_app/opt-ex.zip || true
+        cp -r ./console ./build/electron_app/
+        cp -r ./local_editor/python_modules ./build/electron_app/py/server
+        cp -r ./local_editor/runner_component/core ./build/electron_app/py/connector
+        cp -r ./local_editor/runner_component/tools/nncd_console ./build/electron_app/py/server/
+        cp -r ./local_editor/runner_component/tools/nncd_console ./build/electron_app/py/connector/
+        cp -r ${{ env.pythonLocation }} ./build/electron_app/python_bundles
+        rm -f ./build/electron_app/python_bundles/Python-3.*.tgz
+        pushd ./build/electron_app
+        npm ci
+        npm run mac-dist
+        popd
+        mv ./build/electron_app/dist ./
+        rm -rf ./build
+
+    - name: upload built cpu dmg
+      uses: actions/upload-artifact@v4
+      with:
+        name: macos-cpu-dmg
+        path: ./dist/*.dmg
+        retention-days: 1
