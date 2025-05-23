@@ -11,6 +11,7 @@ on:
     - $default-branch
     - 'release/**'
     - 'feature/**'
+  workflow_dispatch:
 
 jobs:
   web-page-linux:
@@ -102,7 +103,7 @@ jobs:
       run: |
         mkdir ./build
         cp -r ./electron_app ./build/
-        wget https://nnabla.org/pkg/nncd-opt-ex.zip -O ./build/electron_app/opt-ex.zip || true
+        wget -q https://nnabla.org/pkg/nncd-opt-ex.zip -O ./build/electron_app/opt-ex.zip || true
         cp -r ./console ./build/electron_app/
         cp -r ./local_editor/python_modules ./build/electron_app/py/server
         cp -r ./local_editor/runner_component/core ./build/electron_app/py/connector
@@ -163,7 +164,7 @@ jobs:
       run: |
         mkdir ./build
         cp -r ./electron_app ./build/
-        wget https://nnabla.org/pkg/nncd-opt-ex.zip -O ./build/electron_app/opt-ex.zip || true
+        wget -q https://nnabla.org/pkg/nncd-opt-ex.zip -O ./build/electron_app/opt-ex.zip || true
         cp -r ./console ./build/electron_app/
         cp -r ./local_editor/python_modules ./build/electron_app/py/server
         cp -r ./local_editor/runner_component/core ./build/electron_app/py/connector
@@ -241,14 +242,14 @@ jobs:
         Copy-Item -Recurse ".\local_editor\runner_component\tools\nncd_console" ".\build\electron_app\py\connector\"
         Copy-Item -Recurse "${{ env.pythonLocation }}" ".\build\electron_app\python_bundles"
         cd .\build\electron_app
-        tar.exe -cf - python_bundles | brotli.exe -9 > python_bundles.tar.br
-        Delete-Item -Recurse ".\python_bundles"
+        dir
+        tar -czf python_bundles.tgz python_bundles
+        Remove-Item -Recurse ".\python_bundles"
         npm ci
         npm run win-cpu-dist
-        Delete-Item "python_bundles.tar.br"
         cd ..\..
         Move-Item -Path ".\build\electron_app\dist" ".\"
-        Delete-Item -Recurse ".\build"
+        Remove-Item -Recurse ".\build"
 
     - name: upload built cpu installer
       uses: actions/upload-artifact@v4
@@ -307,14 +308,13 @@ jobs:
         Copy-Item -Recurse ".\local_editor\runner_component\tools\nncd_console" ".\build\electron_app\py\connector\"
         Copy-Item -Recurse "${{ env.pythonLocation }}" ".\build\electron_app\python_bundles"
         cd .\build\electron_app
-        tar.exe -cf - python_bundles | brotli.exe -9 > python_bundles.tar.br
-        Delete-Item -Recurse ".\python_bundles"
+        echo tar.exe -czf python_bundles.tgz python_bundles
+        echo Remove-Item -Recurse ".\python_bundles"
         npm ci
         npm run win-gpu-dist
-        Delete-Item "python_bundles.tar.br"
         cd ..\..
         Move-Item -Path ".\build\electron_app\dist" ".\"
-        Delete-Item -Recurse ".\build"
+        Remove-Item -Recurse ".\build"
 
     - name: upload built gpu installer
       uses: actions/upload-artifact@v4
@@ -352,7 +352,7 @@ jobs:
       run: |
         mkdir -p ./build
         pushd ./build
-        wget https://github.com/protocolbuffers/protobuf/archive/refs/tags/v21.12.tar.gz -O - |tar xzf -
+        wget -q https://github.com/protocolbuffers/protobuf/archive/refs/tags/v21.12.tar.gz -O - |tar xzf -
         mkdir protobuf-build
         pushd protobuf-build
         cmake -Dprotobuf_BUILD_TESTS=OFF ../protobuf-21.12/cmake
@@ -389,7 +389,7 @@ jobs:
         mkdir -p ./build
 
         cp -r ./electron_app ./build/
-        wget https://nnabla.org/pkg/nncd-opt-ex.zip -O ./build/electron_app/opt-ex.zip || true
+        wget -q https://nnabla.org/pkg/nncd-opt-ex.zip -O ./build/electron_app/opt-ex.zip || true
         cp -r ./console ./build/electron_app/
         cp -r ./local_editor/python_modules ./build/electron_app/py/server
         cp -r ./local_editor/runner_component/core ./build/electron_app/py/connector

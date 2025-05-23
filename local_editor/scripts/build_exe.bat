@@ -56,8 +56,8 @@ if "%actual_hash%"=="%expected_hash%" (
 
 @REM compress python_bundles
 SET source_folder=python_bundles
-SET br_file=%source_folder%.tar.br
-CALL tar -cf - %source_folder% | brotli.exe -9 > %br_file% || GOTO :error_pack
+SET br_file=%source_folder%.tgz
+CALL tar -czf %br_file% %source_folder% || GOTO :error_pack
 rmdir /s /q %source_folder%
 
 CALL npm list -g cross-env || CALL npm install cross-env || GOTO :error
