@@ -35,23 +35,7 @@ jobs:
 
     - name: build pages for Linux
       run: |
-        mkdir ./build
-        cp -r nnc-web/common ./build/
-        cp -r nnc-web/web ./build/
-        cp -r local_editor ./build/
-        cp -rf ./build/local_editor/web_component/local_editor_web/* ./build/web/
-        cp -rf ./build/local_editor/web_component/local_editor_editor ./build/new_editor
-        cp -rf ./build/local_editor/web_component/local_editor_top ./build/top
-        pushd ./build/local_editor
-        bash init_build.sh
-        popd
-        cp -r ./build/top/dist/assets ./build/dist/console/
-        cp -r ./build/top/dist/project ./build/dist/console/
-        cp -r ./build/local_editor/resource/docs ./build/dist/console/
-        cp ./build/common/favicon.ico ./build/dist/console/
-        rm -rf ./build/dist/console/lib/dummy
-        mv ./build/dist/console ./
-        rm -rf ./build
+        bash local_editor/scripts/build-web-page.sh
 
     - name: save npm ci cache
       id: npm-cache-save
@@ -101,22 +85,7 @@ jobs:
 
     - name: make cpu deb
       run: |
-        mkdir ./build
-        cp -r ./electron_app ./build/
-        wget -q https://nnabla.org/pkg/nncd-opt-ex.zip -O ./build/electron_app/opt-ex.zip || true
-        cp -r ./console ./build/electron_app/
-        cp -r ./local_editor/python_modules ./build/electron_app/py/server
-        cp -r ./local_editor/runner_component/core ./build/electron_app/py/connector
-        cp -r ./local_editor/runner_component/tools/nncd_console ./build/electron_app/py/server/
-        cp -r ./local_editor/runner_component/tools/nncd_console ./build/electron_app/py/connector/
-        cp -r ${{ env.pythonLocation }} ./build/electron_app/python_bundles
-        rm -f ./build/electron_app/python_bundles/Python-3.*.tgz
-        pushd ./build/electron_app
-        npm ci
-        npm run linux-cpu-deb
-        popd
-        mv ./build/electron_app/dist ./
-        rm -rf ./build
+        bash local_editor/scripts/build_app.sh ${{ env.pythonLocation }} linux-cpu-deb
 
     - name: upload built cpu deb
       uses: actions/upload-artifact@v4
@@ -162,24 +131,7 @@ jobs:
 
     - name: make gpu deb
       run: |
-        mkdir ./build
-        cp -r ./electron_app ./build/
-        wget -q https://nnabla.org/pkg/nncd-opt-ex.zip -O ./build/electron_app/opt-ex.zip || true
-        cp -r ./console ./build/electron_app/
-        cp -r ./local_editor/python_modules ./build/electron_app/py/server
-        cp -r ./local_editor/runner_component/core ./build/electron_app/py/connector
-        cp -r ./local_editor/runner_component/tools/nncd_console ./build/electron_app/py/server/
-        cp -r ./local_editor/runner_component/tools/nncd_console ./build/electron_app/py/connector/
-        cp -r ${{ env.pythonLocation }} ./build/electron_app/python_bundles
-        rm -f ./build/electron_app/python_bundles/Python-3.*.tgz
-        chmod 666 ./build/electron_app/py/server/nncd_console/settings/settings.ini
-        chmod 666 ./build/electron_app/py/connector/nncd_console/settings/settings.ini
-        pushd ./build/electron_app
-        npm ci
-        npm run linux-gpu-deb
-        popd
-        mv ./build/electron_app/dist ./
-        rm -rf ./build
+        bash local_editor/scripts/build_app.sh ${{ env.pythonLocation }} linux-gpu-deb
 
     - name: upload built gpu deb
       uses: actions/upload-artifact@v4
@@ -230,26 +182,8 @@ jobs:
     - name: make cpu installer
       shell: powershell
       run: |
-        New-Item -Path ".\build" -ItemType "Directory"
-        Copy-Item -Recurse ".\electron_app" ".\build\"
-        $ErrorActionPreference = "Continue"
-        Invoke-WebRequest -Uri "https://nnabla.org/pkg/nncd-opt-ex.zip" -OutFile ".\build\electron_app\opt-ex.zip"
-        $ErrorActionPreference = "Stop"
-        Copy-Item -Recurse ".\console" ".\build\electron_app\"
-        Copy-Item -Recurse ".\local_editor\python_modules" ".\build\electron_app\py\server"
-        Copy-Item -Recurse ".\local_editor\runner_component\core" ".\build\electron_app\py\connector"
-        Copy-Item -Recurse ".\local_editor\runner_component\tools\nncd_console" ".\build\electron_app\py\server\"
-        Copy-Item -Recurse ".\local_editor\runner_component\tools\nncd_console" ".\build\electron_app\py\connector\"
-        Copy-Item -Recurse "${{ env.pythonLocation }}" ".\build\electron_app\python_bundles"
-        cd .\build\electron_app
-        dir
-        tar -czf python_bundles.tgz python_bundles
-        Remove-Item -Recurse ".\python_bundles"
-        npm ci
-        npm run win-cpu-dist
-        cd ..\..
-        Move-Item -Path ".\build\electron_app\dist" ".\"
-        Remove-Item -Recurse ".\build"
+        Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -ErrorAction Stop
+        .\local_editor\scripts\build_app_win.ps1 ${{ env.pythonLocation }} win-cpu-dist
 
     - name: upload built cpu installer
       uses: actions/upload-artifact@v4
@@ -296,25 +230,8 @@ jobs:
     - name: make gpu installer
       shell: powershell
       run: |
-        New-Item -Path ".\build" -ItemType "Directory"
-        Copy-Item -Recurse ".\electron_app" ".\build\"
-        $ErrorActionPreference = "Continue"
-        Invoke-WebRequest -Uri "https://nnabla.org/pkg/nncd-opt-ex.zip" -OutFile ".\build\electron_app\opt-ex.zip"
-        $ErrorActionPreference = "Stop"
-        Copy-Item -Recurse ".\console" ".\build\electron_app\"
-        Copy-Item -Recurse ".\local_editor\python_modules" ".\build\electron_app\py\server"
-        Copy-Item -Recurse ".\local_editor\runner_component\core" ".\build\electron_app\py\connector"
-        Copy-Item -Recurse ".\local_editor\runner_component\tools\nncd_console" ".\build\electron_app\py\server\"
-        Copy-Item -Recurse ".\local_editor\runner_component\tools\nncd_console" ".\build\electron_app\py\connector\"
-        Copy-Item -Recurse "${{ env.pythonLocation }}" ".\build\electron_app\python_bundles"
-        cd .\build\electron_app
-        echo tar.exe -czf python_bundles.tgz python_bundles
-        echo Remove-Item -Recurse ".\python_bundles"
-        npm ci
-        npm run win-gpu-dist
-        cd ..\..
-        Move-Item -Path ".\build\electron_app\dist" ".\"
-        Remove-Item -Recurse ".\build"
+        Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -ErrorAction Stop
+        .\local_editor\scripts\build_app_win.ps1 ${{ env.pythonLocation }} win-gpu-dist
 
     - name: upload built gpu installer
       uses: actions/upload-artifact@v4
@@ -350,32 +267,7 @@ jobs:
 
     - name: build nnabla
       run: |
-        mkdir -p ./build
-        pushd ./build
-        wget -q https://github.com/protocolbuffers/protobuf/archive/refs/tags/v21.12.tar.gz -O - |tar xzf -
-        mkdir protobuf-build
-        pushd protobuf-build
-        cmake -Dprotobuf_BUILD_TESTS=OFF ../protobuf-21.12/cmake
-        make -j8
-        popd
-        git clone https://github.com/sony/nnabla.git
-        mkdir nnabla-build
-        pushd nnabla-build
-        python -m venv nnabla-venv
-        . nnabla-venv/bin/activate
-        python -m pip install -U pip
-        perl -i -pe 's/^Cython$/Cython==3.0.10/g' ../nnabla/python/requirements.txt
-        perl -i -pe 's/^numpy$/numpy==1.26.4/g' ../nnabla/python/requirements.txt
-        python -m pip install -U -r ../nnabla/python/requirements.txt
-        python -m pip install -U -r ../nnabla/python/setup_requirements.txt
-        cmake -DPROTOC_COMMAND=$(readlink -f ../protobuf-build/protoc) ../nnabla
-        make -j8
-        deactivate
-        popd
-        popd
-        mv ./build/nnabla-build/dist/nnabla-*.whl ./
-        mv ./build/nnabla-build/dist/nnabla_converter-*.whl ./
-        rm -rf ./build
+        bash local_editor/scripts/build_nnabla.sh
 
     - name: install python packages
       run: |
@@ -386,23 +278,7 @@ jobs:
 
     - name: make cpu dmg
       run: |
-        mkdir -p ./build
-
-        cp -r ./electron_app ./build/
-        wget -q https://nnabla.org/pkg/nncd-opt-ex.zip -O ./build/electron_app/opt-ex.zip || true
-        cp -r ./console ./build/electron_app/
-        cp -r ./local_editor/python_modules ./build/electron_app/py/server
-        cp -r ./local_editor/runner_component/core ./build/electron_app/py/connector
-        cp -r ./local_editor/runner_component/tools/nncd_console ./build/electron_app/py/server/
-        cp -r ./local_editor/runner_component/tools/nncd_console ./build/electron_app/py/connector/
-        cp -r ${{ env.pythonLocation }} ./build/electron_app/python_bundles
-        rm -f ./build/electron_app/python_bundles/Python-3.*.tgz
-        pushd ./build/electron_app
-        npm ci
-        npm run mac-dist
-        popd
-        mv ./build/electron_app/dist ./
-        rm -rf ./build
+        bash local_editor/scripts/build_app.sh ${{ env.pythonLocation }} mac-dist
 
     - name: upload built cpu dmg
       uses: actions/upload-artifact@v4
